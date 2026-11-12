@@ -159,6 +159,12 @@ body.modal-open{overflow:hidden}
 .radios label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px}
 .private-field textarea{background:#f7f4ef}
 
+.grow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.grow input[type=color]{width:30px;height:30px;border:none;padding:0;background:none;cursor:pointer;flex:none}
+.grow input[type=text]{flex:1;min-width:0}
+.grow .cnt{font-size:12px;color:var(--sub);white-space:nowrap;width:3.5em;text-align:right}
+.grow .mv{width:32px;height:32px;padding:0;flex:none}
+.grow .btn.small{flex:none}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2b2622;color:#fff;padding:10px 18px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:100;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -177,6 +183,10 @@ body.modal-open{overflow:hidden}
   .row2{grid-template-columns:1fr}
   .d-body{padding:16px}
   .top-inner .btn.primary{padding:8px 13px}
+  .grow{flex-wrap:wrap}
+  .grow input[type=text]{flex:1 1 calc(100% - 40px)}
+  .grow .btn[data-act=rename]{margin-left:38px}
+  .grow .cnt{margin-right:auto;text-align:left}
 }
 @media (max-width:380px){ .grid{grid-template-columns:1fr} }
 
@@ -258,6 +268,7 @@ body.modal-open{overflow:hidden}
           <button data-act="bookAll">引き継ぎ冊子を出力（全件）</button>
           <button data-act="bookFiltered">引き継ぎ冊子を出力（いまの絞り込み結果）</button>
           <button data-act="excel">Excelに書き出す</button>
+          <button data-act="genres">ジャンルの管理</button>
           <div class="note">冊子・Excelには「私的メモ」は含まれません</div>
           <div class="sep"></div>
           <button data-act="backup">完全バックアップを保存（写真・私的メモ含む）</button>
@@ -316,6 +327,27 @@ body.modal-open{overflow:hidden}
       <button id="dEdit" class="btn primary">編集</button>
     </div>
     <div class="sheet-scroll" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ジャンルの管理 -->
+<div id="genreMgr" class="overlay hidden">
+  <div class="sheet" style="max-width:560px">
+    <div class="sheet-head">
+      <button class="btn icon" data-close="genreMgr" aria-label="閉じる">✕</button>
+      <div class="ttl">ジャンルの管理</div>
+    </div>
+    <div class="sheet-scroll">
+      <div class="form">
+        <p class="hint" style="margin:0 0 12px">名前を書き換えて「変更」を押すと、そのジャンルが付いたカードもまとめて変わります。色の丸を押すと色を変えられます。並び順は絞り込みや冊子の目次の順になります。</p>
+        <div id="gRows"></div>
+        <div class="fdiv">新しいジャンルを追加</div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="gNew" placeholder="例：伝統芸能">
+          <button class="btn primary" id="gAdd">追加</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -463,7 +495,16 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const pad = n => String(n).padStart(2,'0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const fmtDate = s => s ? s.replace(/-/g,'.') : '—';
-const gColor = g => GENRE_COLORS[g] || '#7d7368';
+const NEW_COLORS = ['#b0605a','#4f7f9e','#8f6bb0','#5b8c6a','#b08a3e','#3e8a8a','#9a5b7d','#6b7b8c'];
+function genreList(){
+  // 保存済みのジャンル一覧（なければ初期の一覧）に、カードで使われている未登録のジャンルを足したもの
+  const base = state.genreList ? state.genreList.map(g => ({ ...g })) : GENRES.map(n => ({ name: n, color: GENRE_COLORS[n] }));
+  const names = new Set(base.map(g => g.name));
+  let k = base.length;
+  state.cards.forEach(c => (c.genres || []).forEach(n => { if (!names.has(n)){ names.add(n); base.push({ name: n, color: NEW_COLORS[(k++) % NEW_COLORS.length] }); } }));
+  return base;
+}
+const gColor = g => { const f = genreList().find(x => x.name === g); return (f && f.color) || GENRE_COLORS[g] || '#7d7368'; };
 const primaryGenre = c => (c.genres && c.genres[0]) || 'その他';
 const badge = g => `<span class="badge" style="--gc:${gColor(g)}">${esc(g)}</span>`;
 const safeUrl = u => /^https?:\/\//i.test(u || '') ? u : '';
@@ -481,8 +522,11 @@ function toast(msg, ms = 2600){
 function makeFirebaseStore(){
   const db = firebase.firestore();
   try { db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch(e) {}
-  const C = db.collection('okayama_cards'), P = db.collection('okayama_photos');
+  const C = db.collection('okayama_cards'), P = db.collection('okayama_photos'), G = db.collection('okayama_settings').doc('genres');
   return {
+    subscribeGenres(cb){ return G.onSnapshot(d => cb(d.exists ? (d.data().list || null) : null), () => {}); },
+    saveGenres(list){ return G.set({ list }); },
+    patch(id, data){ return C.doc(id).set(data, { merge: true }); },
     subscribe(cb){ return C.onSnapshot(s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => toast('読み込みエラー：' + e.message, 5000)); },
     newId(){ return C.doc().id; },
     save(id, data){ return C.doc(id).set(data); },
@@ -505,7 +549,11 @@ function makeDemoStore(){
   const photos = {};
   let cb = null; let n = 100;
   const emit = () => cb && cb(cards.map(c => ({ ...c })));
+  let gList = null, gcb = null;
   return {
+    subscribeGenres(f){ gcb = f; f(gList); },
+    saveGenres(list){ gList = list.map(g => ({ ...g })); gcb && gcb(gList); return Promise.resolve(); },
+    patch(id, data){ const c = cards.find(x => x.id === id); if (c) Object.assign(c, data); emit(); return Promise.resolve(); },
     subscribe(f){ cb = f; emit(); },
     newId(){ return 'd' + (n++); },
     save(id, data){ const i = cards.findIndex(c => c.id === id); const rec = { id, ...data }; if (i >= 0) cards[i] = rec; else cards.push(rec); emit(); return Promise.resolve(); },
@@ -532,11 +580,7 @@ function prefetch(id){
 }
 
 /* ---------------- 絞り込み・並べ替え ---------------- */
-function allGenres(){
-  const s = new Set(GENRES);
-  state.cards.forEach(c => (c.genres || []).forEach(g => s.add(g)));
-  return [...s];
-}
+function allGenres(){ return genreList().map(g => g.name); }
 const areaIdx = a => { const i = AREAS.indexOf(a); return i < 0 ? 999 : i; };
 const byName = (a, b) => (a.yomi || a.name || '').localeCompare(b.yomi || b.name || '', 'ja');
 function byGenre(a, b){
@@ -612,7 +656,7 @@ function openModal(id){ $('#' + id).classList.remove('hidden'); document.body.cl
 function closeModal(id){
   $('#' + id).classList.add('hidden');
   if (id === 'detail') state.detailId = null;
-  if ($('#detail').classList.contains('hidden') && $('#editor').classList.contains('hidden')) document.body.classList.remove('modal-open');
+  if (['detail','editor','genreMgr'].every(m => $('#' + m).classList.contains('hidden'))) document.body.classList.remove('modal-open');
 }
 
 /* ---------------- 詳細 ---------------- */
@@ -801,6 +845,12 @@ async function saveEdit(){
     status: (document.querySelector('input[name=eStatus]:checked') || {}).value || 'draft',
     createdAt: $('#eCreated').value || today(), updatedAt, thumb, photoCount
   };
+  const known = new Set(genreList().map(g => g.name));
+  if (state.genreList && genres.some(g => !known.has(g))){
+    const list = genreList(); let k = list.length;
+    genres.forEach(g => { if (!known.has(g)) list.push({ name: g, color: NEW_COLORS[(k++) % NEW_COLORS.length] }); });
+    store.saveGenres(list).catch(() => {});
+  }
   store.save(id, data).catch(e => toast('保存に失敗しました：' + e.message, 5000));
   const wasDetail = state.detailId === id;
   edit = null;
@@ -1009,6 +1059,7 @@ function bindUI(){
   }));
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    if (!$('#genreMgr').classList.contains('hidden')){ closeModal('genreMgr'); return; }
     if (!$('#editor').classList.contains('hidden')){ edit = null; closeModal('editor'); }
     else if (!$('#detail').classList.contains('hidden')) closeModal('detail');
   });
@@ -1022,6 +1073,7 @@ function bindUI(){
     if (a === 'bookAll') printBooklet(state.cards);
     else if (a === 'bookFiltered') printBooklet(filtered());
     else if (a === 'excel') exportExcel();
+    else if (a === 'genres') openGenreMgr();
     else if (a === 'backup') backup();
     else if (a === 'restore') $('#restoreFile').click();
     else if (a === 'logout' && auth) auth.signOut().then(() => location.reload());
@@ -1033,6 +1085,7 @@ function start(){
   if (started) return; started = true;
   $('#login').classList.add('hidden');
   $('#app').classList.remove('hidden');
+  store.subscribeGenres(list => { state.genreList = list; if (state.cards) render(); });
   store.subscribe(cards => {
     state.cards = cards;
     render();
@@ -1040,8 +1093,84 @@ function start(){
   });
 }
 
+/* ---------------- ジャンルの管理 ---------------- */
+const gCount = n => state.cards.filter(c => (c.genres || []).includes(n)).length;
+function renderGenreMgr(){
+  const list = genreList();
+  $('#gRows').innerHTML = list.map((g, i) => `<div class="grow" data-i="${i}">
+    <input type="color" value="${esc(g.color || '#7d7368')}" data-act="color" aria-label="色">
+    <input type="text" value="${esc(g.name)}" data-orig="${esc(g.name)}">
+    <button class="btn small" data-act="rename">変更</button>
+    <span class="cnt">${gCount(g.name)}件</span>
+    <button class="btn icon mv" data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="上へ">↑</button>
+    <button class="btn icon mv" data-act="down" ${i === list.length - 1 ? 'disabled' : ''} aria-label="下へ">↓</button>
+    <button class="btn small danger" data-act="del">削除</button>
+  </div>`).join('');
+}
+function openGenreMgr(){ renderGenreMgr(); $('#gNew').value = ''; openModal('genreMgr'); }
+function saveList(list){ state.genreList = list; render(); renderGenreMgr(); return store.saveGenres(list).catch(e => toast('保存に失敗しました：' + e.message, 5000)); }
+function replaceGenreInCards(from, to){
+  // to が null なら削除。カードの更新日は変えない
+  state.cards.forEach(c => {
+    if (!(c.genres || []).includes(from)) return;
+    let gs = c.genres.map(g => g === from ? to : g).filter(Boolean);
+    gs = [...new Set(gs)];
+    store.patch(c.id, { genres: gs }).catch(e => toast('カードの更新に失敗しました：' + e.message, 5000));
+  });
+  if (state.genres.has(from)){ state.genres.delete(from); if (to) state.genres.add(to); }
+}
+function genreAction(act, i, row){
+  const list = genreList(); const g = list[i]; if (!g) return;
+  if (act === 'up' || act === 'down'){
+    const j = act === 'up' ? i - 1 : i + 1; if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]]; saveList(list);
+  } else if (act === 'color'){
+    list[i].color = row.querySelector('input[type=color]').value; saveList(list);
+  } else if (act === 'rename'){
+    const nv = row.querySelector('input[type=text]').value.trim();
+    if (!nv || nv === g.name) return;
+    const n = gCount(g.name); const exists = list.findIndex(x => x.name === nv);
+    const msg = exists >= 0
+      ? `「${g.name}」を、すでにある「${nv}」にまとめます。${n ? `\n「${g.name}」が付いた${n}件のカードは「${nv}」に変わります。` : ''}よろしいですか？`
+      : `「${g.name}」を「${nv}」に変更します。${n ? `\n付いている${n}件のカードも変更されます。` : ''}よろしいですか？`;
+    if (!confirm(msg)){ renderGenreMgr(); return; }
+    replaceGenreInCards(g.name, nv);
+    if (exists >= 0) list.splice(i, 1); else list[i].name = nv;
+    saveList(list); toast('変更しました');
+  } else if (act === 'del'){
+    const n = gCount(g.name);
+    const orphan = state.cards.filter(c => (c.genres || []).length === 1 && c.genres[0] === g.name).length;
+    let msg = `「${g.name}」を削除します。`;
+    if (n) msg += `\n付いている${n}件のカードからも外れます。`;
+    if (orphan) msg += `\nうち${orphan}件はジャンルがなくなるので、あとで付け直してください。`;
+    if (!confirm(msg + '\nよろしいですか？')) return;
+    replaceGenreInCards(g.name, null);
+    list.splice(i, 1); saveList(list); toast('削除しました');
+  }
+}
+function bindGenreMgr(){
+  $('#gRows').addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const row = b.closest('.grow'); genreAction(b.dataset.act, +row.dataset.i, row);
+  });
+  $('#gRows').addEventListener('change', e => {
+    if (e.target.type === 'color'){ const row = e.target.closest('.grow'); genreAction('color', +row.dataset.i, row); }
+  });
+  $('#gRows').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.type === 'text'){ const row = e.target.closest('.grow'); genreAction('rename', +row.dataset.i, row); }
+  });
+  $('#gAdd').onclick = () => {
+    const v = $('#gNew').value.trim(); if (!v) return;
+    const list = genreList();
+    if (list.some(g => g.name === v)) return toast('同じ名前のジャンルがあります');
+    list.push({ name: v, color: NEW_COLORS[list.length % NEW_COLORS.length] });
+    $('#gNew').value = ''; saveList(list); toast('追加しました');
+  };
+}
+
 /* ---------------- 起動 ---------------- */
 bindUI();
+bindGenreMgr();
 if (DEMO){
   store = makeDemoStore();
   $('#demoBanner').classList.remove('hidden');
