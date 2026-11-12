@@ -848,7 +848,33 @@ function cardPageHTML(c, photos, no){
   </div>`;
 }
 
-async function doPrint(html, title){
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// iPhone・iPadでは、A4ページだけの新しいタブを開いて印刷する（画面全体の作り直しを避けて速くする）
+function openPrintWindow(){
+  if (!IS_IOS) return null;
+  const w = window.open('', '_blank');
+  if (w) w.document.write('<!doctype html><meta charset="utf-8"><title>準備中</title><p style="font-family:sans-serif;font-size:40px;padding:60px;color:#555">出力を準備しています…</p>');
+  return w;
+}
+async function doPrint(html, title, w){
+  if (w && !w.closed){
+    const css = document.querySelector('style').textContent;
+    w.document.open();
+    w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=820"><title>${esc(title)}</title><style>${css}
+#print-root{display:block!important}
+@media screen{
+  html,body{background:#e9e4dc!important;margin:0}
+  body{padding:90px 0 30px}
+  #print-root{width:200mm;margin:0 auto;background:#fff;padding:5mm;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+  #print-root .pg{margin-bottom:10mm}
+  .pbar{position:fixed;top:0;left:0;right:0;display:flex;gap:14px;justify-content:center;padding:16px;background:#1f3a5f;z-index:9}
+  .pbar button{font-size:30px;border:none;border-radius:999px;padding:14px 32px;background:#fff;color:#1f3a5f;font-weight:700}
+}
+</style></head><body><div class="pbar"><button onclick="window.print()">印刷・PDF保存</button><button onclick="window.close()">閉じる</button></div><div id="print-root">${html}</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print()},300)});<\/script></body></html>`);
+    w.document.close();
+    return;
+  }
   const root = $('#print-root');
   root.innerHTML = html;
   await Promise.all([...root.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
@@ -861,13 +887,15 @@ async function doPrint(html, title){
 
 async function printCard(id){
   const c = state.cards.find(x => x.id === id); if (!c) return;
+  const w = openPrintWindow();
   toast('A4の出力を準備しています…', 2500);
   const photos = c.photoCount ? await loadPhotos(id) : [];
-  doPrint(cardPageHTML(c, photos, null), `${c.name}_岡山たからもの帖`);
+  doPrint(cardPageHTML(c, photos, null), `${c.name}_岡山たからもの帖`, w);
 }
 
 async function printBooklet(list){
   if (!list.length) return toast('対象のカードがありません');
+  const w = openPrintWindow();
   const sorted = list.slice().sort(byGenre);
   const need = sorted.filter(c => c.photoCount && !photoCache.has(c.id));
   for (let i = 0; i < need.length; i++){ toast(`写真を準備中… ${i + 1}/${need.length}`, 1500); await loadPhotos(need[i].id); }
@@ -887,7 +915,7 @@ async function printBooklet(list){
   const toc = `<div class="pg"><div class="toc-title">目次</div>
     <table class="toc"><thead><tr><th style="width:12mm">No.</th><th>名称</th><th style="width:30mm">エリア</th><th style="width:42mm">ジャンル</th><th style="width:24mm">更新日</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   const pages = sorted.map((c, i) => cardPageHTML(c, photoCache.get(c.id) || [], i + 1)).join('');
-  doPrint(cover + toc + pages, `岡山たからもの帖_引き継ぎ冊子_${t}`);
+  doPrint(cover + toc + pages, `岡山たからもの帖_引き継ぎ冊子_${t}`, w);
 }
 
 /* ---------------- Excel・バックアップ ---------------- */
