@@ -109,6 +109,7 @@ body.modal-open{overflow:hidden}
 .gallery{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;background:#1e1a16}
 .gimg{flex:none;width:100%;aspect-ratio:16/10;max-height:60vh;position:relative;overflow:hidden;scroll-snap-align:start}
 .gimg img{display:block}
+.gal-badge{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:3px 10px;border-radius:999px}
 .gallery.multi .gimg{width:88%}
 .gal-ph{height:120px;width:100%;background:var(--gc);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.85);font-family:'Noto Serif JP',serif;font-size:40px}
 .gal-loading{height:200px;width:100%;display:flex;align-items:center;justify-content:center;color:#cfc6bb;font-size:13px}
@@ -514,10 +515,20 @@ function makeDemoStore(){
   };
 }
 
-async function loadPhotos(id){
-  if (photoCache.has(id)) return photoCache.get(id);
-  try { const p = await store.getPhotos(id); photoCache.set(id, p); return p; }
-  catch(e){ toast('写真を読み込めませんでした'); return []; }
+const photoPending = new Map();
+function loadPhotos(id){
+  if (photoCache.has(id)) return Promise.resolve(photoCache.get(id));
+  if (photoPending.has(id)) return photoPending.get(id);
+  const pr = store.getPhotos(id)
+    .then(p => { photoCache.set(id, p); return p; })
+    .catch(() => { toast('写真を読み込めませんでした'); return []; })
+    .finally(() => photoPending.delete(id));
+  photoPending.set(id, pr);
+  return pr;
+}
+function prefetch(id){
+  const c = state.cards.find(x => x.id === id);
+  if (c && c.photoCount && !photoCache.has(id)) loadPhotos(id);
 }
 
 /* ---------------- 絞り込み・並べ替え ---------------- */
@@ -608,6 +619,7 @@ function closeModal(id){
 function galleryHTML(c, photos){
   const g = primaryGenre(c);
   if (photos && photos.length) return `<div class="gallery ${photos.length > 1 ? 'multi' : ''}">${photos.map(p => `<div class="gimg"><img class="bg" src="${p}" alt="" aria-hidden="true"><img class="fg" src="${p}" alt=""></div>`).join('')}</div>`;
+  if (c.photoCount && c.thumb) return `<div class="gallery"><div class="gimg"><img class="bg" src="${c.thumb}" alt="" aria-hidden="true"><img class="fg" src="${c.thumb}" alt=""><span class="gal-badge">写真を読み込み中…</span></div></div>`;
   if (c.photoCount) return `<div class="gallery"><div class="gal-loading">写真を読み込み中…</div></div>`;
   return `<div class="gallery"><div class="gal-ph" style="--gc:${gColor(g)}">${esc((c.name || '?').charAt(0))}</div></div>`;
 }
@@ -732,9 +744,9 @@ async function compressBlob(file){
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImg(url);
-    let d = drawScaled(img, 1280, 0.72);
-    if (d.length > 300000) d = drawScaled(img, 1024, 0.62);
-    if (d.length > 300000) d = drawScaled(img, 900, 0.55);
+    let d = drawScaled(img, 1080, 0.7);
+    if (d.length > 220000) d = drawScaled(img, 960, 0.62);
+    if (d.length > 220000) d = drawScaled(img, 840, 0.55);
     return d;
   } finally { URL.revokeObjectURL(url); }
 }
@@ -947,6 +959,7 @@ function bindUI(){
   $('#btnFilter').onclick = () => $('#filters').classList.toggle('open');
 
   $('#grid').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openDetail(c.dataset.id); });
+  ['pointerdown', 'mouseover'].forEach(ev => $('#grid').addEventListener(ev, e => { const c = e.target.closest('.card'); if (c) prefetch(c.dataset.id); }, { passive: true }));
   $('#btnNew').onclick = () => openEditor(null);
   $('#dEdit').onclick = () => openEditor(state.detailId);
   $('#dPrint').onclick = () => printCard(state.detailId);
