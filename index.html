@@ -660,7 +660,7 @@ function renderEditPhotos(){
   const tiles = edit.photos.map((p, i) => `<div class="ephoto"><img src="${p}" alt="">
       <button class="x" data-del="${i}" aria-label="削除">✕</button>
       <button class="cover ${i === 0 ? 'is' : ''}" data-cover="${i}">${i === 0 ? '表紙' : '表紙にする'}</button></div>`).join('');
-  const add = edit.photos.length < PHOTO_MAX ? `<label class="addphoto"><span style="font-size:24px">＋</span>写真を追加<input type="file" id="ePhotoInput" accept="image/*" multiple></label>` : '';
+  const add = edit.photos.length < PHOTO_MAX ? `<label class="addphoto"><span style="font-size:24px">＋</span>写真を追加<input type="file" id="ePhotoInput" accept="image/*,.heic,.heif" multiple></label>` : '';
   $('#ePhotos').innerHTML = tiles + add;
   const inp = $('#ePhotoInput');
   if (inp) inp.onchange = e => { addPhotos([...e.target.files]); e.target.value = ''; };
@@ -711,7 +711,21 @@ function drawScaled(img, max, q){
   const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
   return cv.toDataURL('image/jpeg', q);
 }
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+async function heicToJpeg(file){
+  if (typeof heic2any === 'undefined') await loadScript('https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
+  const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+  return Array.isArray(out) ? out[0] : out;
+}
 async function compressFile(file){
+  try { return await compressBlob(file); }
+  catch(e){
+    // 開けなかった場合はHEIC（iPhoneの写真形式）として変換を試みる
+    toast('写真の形式を変換しています…', 4000);
+    return await compressBlob(await heicToJpeg(file));
+  }
+}
+async function compressBlob(file){
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImg(url);
