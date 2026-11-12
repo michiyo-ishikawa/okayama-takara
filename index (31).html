@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3a5f">
+<title>岡山たからもの帖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#f6f2ea; --paper:#fffdf9; --ink:#2b2622; --sub:#6f655c; --line:#e4dccf;
+  --ai:#1f3a5f; --ai-soft:#e8edf4; --bizen:#8a4b2a; --bizen-soft:#f3e9df;
+  --danger:#b3412f; --shadow:0 1px 2px rgba(60,40,20,.06),0 4px 14px rgba(60,40,20,.07);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans JP',system-ui,sans-serif;font-size:15px;line-height:1.6;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+body.modal-open{overflow:hidden}
+
+/* ---------- ボタン ---------- */
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:8px 16px;cursor:pointer;white-space:nowrap;transition:.15s}
+.btn:hover{border-color:#cbbfae}
+.btn.primary{background:var(--ai);border-color:var(--ai);color:#fff;font-weight:500}
+.btn.primary:hover{background:#18304f}
+.btn.bizen{background:var(--bizen);border-color:var(--bizen);color:#fff}
+.btn.icon{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:18px}
+.btn.link{border:none;background:none;color:var(--ai);padding:6px 8px;text-decoration:underline}
+.btn.danger{color:var(--danger);border-color:#e7c3bb}
+.btn.small{padding:5px 12px;font-size:13px}
+
+/* ---------- ログイン ---------- */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-box{background:var(--paper);border-radius:20px;box-shadow:var(--shadow);padding:40px 28px;max-width:380px;width:100%;text-align:center}
+.login-box h1{font-family:'Noto Serif JP',serif;font-size:26px;margin:14px 0 6px;color:var(--ai)}
+.login-box p{color:var(--sub);margin:0 0 24px;font-size:14px}
+.login-msg{color:var(--danger);font-size:13px;margin-top:14px}
+
+/* ---------- ヘッダー ---------- */
+.top{position:sticky;top:0;z-index:20;background:rgba(246,242,234,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top))}
+.top-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.mark{width:38px;height:38px;border-radius:10px;background:var(--bizen);color:#fff;font-family:'Noto Serif JP',serif;font-size:20px;display:flex;align-items:center;justify-content:center;flex:none}
+.brand h1{font-family:'Noto Serif JP',serif;font-size:19px;margin:0;color:var(--ai);line-height:1.25}
+.brand .sub{margin:0;font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu-wrap{position:relative}
+.menu{position:absolute;right:0;top:46px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);min-width:250px;padding:6px;z-index:30}
+.menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+.menu button:hover{background:var(--bg)}
+.menu .sep{height:1px;background:var(--line);margin:6px 4px}
+.menu .note{font-size:11.5px;color:var(--sub);padding:2px 12px 6px}
+
+.banner{max-width:1200px;margin:12px auto 0;padding:10px 14px;border-radius:10px;background:var(--bizen-soft);color:var(--bizen);font-size:13px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+
+/* ---------- 検索・絞り込み ---------- */
+.searchbar{display:flex;gap:8px;margin-top:14px}
+.search{flex:1;position:relative}
+.search input{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:11px 16px 11px 40px;outline:none}
+.search input:focus{border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--sub)}
+#btnFilter{display:none}
+.fcount{display:inline-block;background:var(--bizen);color:#fff;border-radius:999px;font-size:11px;padding:0 6px;margin-left:5px}
+.filters{margin-top:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:5px 13px;cursor:pointer;font-size:13.5px}
+.chip::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gc);margin-right:6px;vertical-align:1px}
+.chip.on{background:var(--gc);border-color:var(--gc);color:#fff}
+.chip.on::before{background:#fff}
+.selects{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.selects select{border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:7px 10px;font-size:13.5px;max-width:100%}
+.resultline{margin:14px 0 10px;font-size:13px;color:var(--sub)}
+
+/* ---------- カード一覧 ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;padding-bottom:60px}
+.card{background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(60,40,20,.08),0 10px 24px rgba(60,40,20,.1)}
+.thumb{aspect-ratio:4/3;background:var(--gc);position:relative;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font-family:'Noto Serif JP',serif;font-size:56px;background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(0,0,0,.12))}
+.draft{position:absolute;top:10px;left:10px;background:rgba(255,253,249,.94);color:var(--bizen);border-radius:999px;font-size:11.5px;padding:2px 10px;font-weight:500}
+.card .body{padding:12px 14px 12px;display:flex;flex-direction:column;flex:1}
+.badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.badge{font-size:11px;padding:1px 9px;border-radius:999px;color:var(--gc);background:color-mix(in srgb,var(--gc) 12%,white);border:1px solid color-mix(in srgb,var(--gc) 30%,white);font-weight:500}
+.card h3{margin:0;font-family:'Noto Serif JP',serif;font-size:17px;line-height:1.4}
+.card .meta{font-size:12.5px;color:var(--sub);margin-top:2px}
+.card .catch{font-size:13.5px;margin:8px 0 0;color:#4a423b;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .date{margin-top:auto;padding-top:10px;font-size:11.5px;color:#9a8f84}
+.empty{text-align:center;color:var(--sub);padding:60px 20px}
+
+/* ---------- モーダル ---------- */
+.overlay{position:fixed;inset:0;background:rgba(30,24,18,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.sheet{background:var(--paper);border-radius:18px;width:100%;max-width:760px;max-height:calc(100vh - 40px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.sheet-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
+.sheet-head .ttl{flex:1;font-weight:700;font-size:15px}
+.sheet-scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.sheet-foot{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line);flex:none;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+
+/* 詳細 */
+.gallery{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;background:#1e1a16}
+.gallery img{flex:none;width:100%;max-height:52vh;aspect-ratio:16/10;object-fit:cover;scroll-snap-align:start}
+.gallery.multi img{width:88%}
+.gal-ph{height:120px;width:100%;background:var(--gc);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.85);font-family:'Noto Serif JP',serif;font-size:40px}
+.gal-loading{height:200px;width:100%;display:flex;align-items:center;justify-content:center;color:#cfc6bb;font-size:13px}
+.d-body{padding:18px 20px 24px}
+.d-body h2{font-family:'Noto Serif JP',serif;font-size:24px;margin:4px 0 0;line-height:1.35}
+.d-yomi{font-size:12px;color:var(--sub)}
+.d-catch{color:var(--bizen);font-size:15px;margin:8px 0 0}
+.d-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+.d-table th{width:7.5em;background:var(--bg);text-align:center;vertical-align:middle;font-weight:500;color:var(--sub);border:1px solid var(--line);padding:8px}
+.d-table td{text-align:left;vertical-align:middle;border:1px solid var(--line);padding:8px 12px;word-break:break-all;white-space:pre-wrap}
+.d-table a{color:var(--ai)}
+.d-sec{margin-top:18px}
+.d-sec h4{margin:0 0 6px;font-size:14px;color:var(--ai);border-left:4px solid var(--bizen);padding-left:8px}
+.d-sec .txt{white-space:pre-wrap;font-size:14.5px}
+.private{margin-top:20px;background:#f2efe9;border-radius:10px;padding:12px 14px;border:1px dashed #cdbfae}
+.private h4{border:none;padding:0;color:var(--sub)}
+.d-dates{margin-top:20px;font-size:12.5px;color:var(--sub);display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.status-pill{border-radius:999px;padding:1px 10px;font-size:12px;background:var(--bizen-soft);color:var(--bizen)}
+.status-pill.done{background:var(--ai-soft);color:var(--ai)}
+
+/* 編集フォーム */
+.form{padding:16px 20px 24px}
+.fgroup{margin-bottom:16px}
+.fgroup label.lb{display:block;font-size:13px;font-weight:500;margin-bottom:5px}
+.req{color:var(--bizen);font-size:11px;margin-left:4px}
+.hint{font-size:11.5px;color:var(--sub);font-weight:400;margin-left:4px}
+.form input[type=text],.form input[type=url],.form input[type=date],.form select,.form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff;outline:none;font-size:15px}
+.form textarea{min-height:96px;resize:vertical;line-height:1.65}
+.form input:focus,.form select:focus,.form textarea:focus{border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gchecks{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.gchecks label{cursor:pointer}
+.gchecks input{display:none}
+.gchecks span{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 13px;font-size:13.5px;background:#fff}
+.gchecks input:checked+span{background:var(--gc);border-color:var(--gc);color:#fff}
+.fdiv{margin:22px 0 14px;font-size:12px;color:var(--sub);display:flex;align-items:center;gap:10px}
+.fdiv::before,.fdiv::after{content:"";flex:1;height:1px;background:var(--line)}
+.ephotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.ephoto{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#eee}
+.ephoto img{width:100%;height:100%;object-fit:cover}
+.ephoto .x{position:absolute;top:5px;right:5px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:13px}
+.ephoto .cover{position:absolute;left:5px;bottom:5px;border:none;border-radius:999px;font-size:11px;padding:2px 8px;cursor:pointer;background:rgba(255,255,255,.9)}
+.ephoto .cover.is{background:var(--bizen);color:#fff;cursor:default}
+.addphoto{aspect-ratio:1;border:2px dashed var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--sub);cursor:pointer;font-size:13px;background:#fff}
+.addphoto input{display:none}
+.radios{display:flex;gap:16px}
+.radios label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px}
+.private-field textarea{background:#f7f4ef}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2b2622;color:#fff;padding:10px 18px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:100;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:720px){
+  .brand .sub{display:none}
+  #btnFilter{display:inline-block}
+  .filters{display:none}
+  .filters.open{display:block}
+  .grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .card .body{padding:10px 11px}
+  .card h3{font-size:15px}
+  .card .catch{font-size:12.5px}
+  .ph{font-size:40px}
+  .overlay{padding:0;align-items:flex-end}
+  .sheet{max-width:none;max-height:100%;height:100%;border-radius:0}
+  .row2{grid-template-columns:1fr}
+  .d-body{padding:16px}
+  .top-inner .btn.primary{padding:8px 13px}
+}
+@media (max-width:380px){ .grid{grid-template-columns:1fr} }
+
+/* ---------- 印刷（A4・最小余白） ---------- */
+#print-root{display:none}
+@page{size:A4;margin:5mm}
+@media print{
+  html,body{background:#fff!important}
+  body>*:not(#print-root){display:none!important}
+  #print-root{display:block}
+}
+#print-root{color:#222;font-family:'Noto Sans JP',sans-serif;font-size:10.5pt;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#print-root .pg{width:200mm;break-after:page;page-break-after:always}
+#print-root .pg:last-child{break-after:auto;page-break-after:auto}
+.pg-head{display:flex;justify-content:space-between;align-items:flex-end;gap:5mm;border-bottom:0.7mm solid #1f3a5f;padding-bottom:2.5mm;margin-bottom:3mm}
+.pg-title{font-family:'Noto Serif JP',serif;font-size:21pt;font-weight:700;line-height:1.3}
+.pg-yomi{font-size:8.5pt;color:#777}
+.pg-catch{font-size:11pt;color:#8a4b2a;margin-top:1mm}
+.pg-right{text-align:right;flex:none}
+.pg-no{font-size:8.5pt;color:#777;margin-bottom:1.5mm}
+.pg-badges{display:flex;gap:1.2mm;justify-content:flex-end;flex-wrap:wrap;max-width:60mm}
+.pg-badge{font-size:8pt;padding:0.3mm 2.5mm;border-radius:3mm;color:#fff;background:var(--gc)}
+.pg-photos{display:grid;gap:2mm;margin-bottom:3mm;overflow:hidden}
+.pg-photos img{min-height:0;min-width:0}
+.pg-photos img{width:100%;height:100%;object-fit:cover;display:block;border-radius:1mm}
+.pg-photos.n1{height:95mm;grid-template-rows:100%}
+.pg-photos.n2{grid-template-columns:1fr 1fr;grid-template-rows:100%;height:68mm}
+.pg-photos.n3{grid-template-columns:2fr 1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr);height:82mm}
+.pg-photos.n3 img:first-child{grid-row:span 2}
+.pg-table{width:100%;border-collapse:collapse;margin-bottom:3mm;font-size:9.5pt}
+.pg-table th{width:26mm;background:#f1ece4;text-align:center;vertical-align:middle;font-weight:500;border:0.25mm solid #cfc6b8;padding:1.4mm}
+.pg-table td{text-align:left;vertical-align:middle;border:0.25mm solid #cfc6b8;padding:1.4mm 2.5mm;white-space:pre-wrap;word-break:break-all}
+.pg-sec{margin-bottom:3mm}
+.pg-sec h4{margin:0 0 1mm;font-size:10.5pt;color:#1f3a5f;border-left:1.2mm solid #8a4b2a;padding-left:2mm}
+.pg-sec .txt{white-space:pre-wrap}
+.pg-foot{border-top:0.25mm solid #ccc;margin-top:3mm;padding-top:1.2mm;font-size:8pt;color:#777;display:flex;justify-content:space-between}
+.cover-pg{height:270mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.cover-mark{width:24mm;height:24mm;border-radius:5mm;background:#8a4b2a;color:#fff;font-family:'Noto Serif JP',serif;font-size:30pt;display:flex;align-items:center;justify-content:center}
+.cover-title{font-family:'Noto Serif JP',serif;font-size:34pt;color:#1f3a5f;margin:8mm 0 3mm}
+.cover-sub{font-size:12pt;color:#555}
+.cover-meta{margin-top:30mm;font-size:11pt;line-height:2}
+.toc-title{font-family:'Noto Serif JP',serif;font-size:18pt;color:#1f3a5f;border-bottom:0.7mm solid #1f3a5f;padding-bottom:2mm;margin-bottom:3mm}
+.toc{width:100%;border-collapse:collapse;font-size:9.5pt}
+.toc th{background:#f1ece4;text-align:center;vertical-align:middle;border:0.25mm solid #cfc6b8;padding:1.2mm;font-weight:500}
+.toc td{border:0.25mm solid #cfc6b8;padding:1.2mm 2.5mm;vertical-align:middle}
+.toc td.c{text-align:center}
+.toc tr.grp td{background:#e8edf4;color:#1f3a5f;font-weight:700}
+.toc tr{break-inside:avoid}
+</style>
+</head>
+<body>
+
+<!-- ログイン -->
+<div id="login" class="login hidden">
+  <div class="login-box">
+    <div class="mark" style="margin:0 auto;width:52px;height:52px;font-size:26px;border-radius:14px">宝</div>
+    <h1>岡山たからもの帖</h1>
+    <p>岡山が誇る文化・産業・農業・食・匠の記録</p>
+    <button id="btnLogin" class="btn primary" style="padding:12px 26px">Googleでログイン</button>
+    <div id="loginMsg" class="login-msg"></div>
+  </div>
+</div>
+
+<!-- アプリ本体 -->
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <div class="mark">宝</div>
+        <div style="min-width:0">
+          <h1>岡山たからもの帖</h1>
+          <p class="sub">岡山が誇る文化・産業・農業・食・匠の記録</p>
+        </div>
+      </div>
+      <button id="btnNew" class="btn primary">＋ 登録</button>
+      <div class="menu-wrap">
+        <button id="btnMenu" class="btn icon" aria-label="メニュー">⋯</button>
+        <div id="menu" class="menu hidden">
+          <button data-act="bookAll">引き継ぎ冊子を出力（全件）</button>
+          <button data-act="bookFiltered">引き継ぎ冊子を出力（いまの絞り込み結果）</button>
+          <button data-act="excel">Excelに書き出す</button>
+          <div class="note">冊子・Excelには「私的メモ」は含まれません</div>
+          <div class="sep"></div>
+          <button data-act="backup">完全バックアップを保存（写真・私的メモ含む）</button>
+          <button data-act="restore">バックアップから復元</button>
+          <div class="sep" id="logoutSep"></div>
+          <button data-act="logout" id="btnLogout">ログアウト</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="demoBanner" class="banner hidden">デモ表示中です。Firebaseの設定を入れると本番になります（デモではデータは保存されません）。</div>
+
+    <div class="searchbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="名前・特徴・タグ・関係者などで検索">
+      </div>
+      <button id="btnFilter" class="btn">絞り込み<span id="fcount"></span></button>
+    </div>
+
+    <section id="filters" class="filters">
+      <div id="genreChips" class="chips"></div>
+      <div class="selects">
+        <select id="fArea"></select>
+        <select id="fScale"></select>
+        <select id="fStatus">
+          <option value="">状態：すべて</option>
+          <option value="draft">下書きのみ</option>
+          <option value="done">完成のみ</option>
+        </select>
+        <select id="fSort">
+          <option value="updated">更新日が新しい順</option>
+          <option value="created">登録日が新しい順</option>
+          <option value="name">名前順</option>
+          <option value="genre">ジャンル順</option>
+        </select>
+        <button id="btnClear" class="btn link">条件をクリア</button>
+      </div>
+    </section>
+
+    <div id="resultLine" class="resultline"></div>
+    <main id="grid" class="grid"></main>
+    <div id="empty" class="empty hidden"></div>
+  </div>
+</div>
+
+<!-- 詳細 -->
+<div id="detail" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <button class="btn icon" data-close="detail" aria-label="閉じる">✕</button>
+      <div class="ttl"></div>
+      <button id="dPrint" class="btn">A4で出力</button>
+      <button id="dEdit" class="btn primary">編集</button>
+    </div>
+    <div class="sheet-scroll" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- 登録・編集 -->
+<div id="editor" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <button class="btn icon" data-close="editor" aria-label="閉じる">✕</button>
+      <div class="ttl" id="eTitle">新しく登録</div>
+    </div>
+    <div class="sheet-scroll">
+      <div class="form">
+        <div class="fgroup">
+          <label class="lb" for="eName">名称<span class="req">必須</span></label>
+          <input type="text" id="eName" placeholder="例：備前焼、清水白桃、○○工房">
+        </div>
+        <div class="fgroup">
+          <label class="lb">ジャンル<span class="req">必須</span><span class="hint">複数選べます</span></label>
+          <div id="eGenres" class="gchecks"></div>
+          <input type="text" id="eGenreExtra" placeholder="その他のジャンル（追加する場合のみ、読点区切り）">
+        </div>
+        <div class="row2">
+          <div class="fgroup">
+            <label class="lb" for="eArea">エリア<span class="req">必須</span></label>
+            <select id="eAreaSel"></select>
+            <input type="text" id="eAreaOther" list="areaList" placeholder="市町村名を入力（例：高梁市）" class="hidden" style="margin-top:8px">
+            <datalist id="areaList"></datalist>
+          </div>
+          <div class="fgroup">
+            <label class="lb" for="eScale">規模</label>
+            <select id="eScale"></select>
+          </div>
+        </div>
+
+        <div class="fgroup">
+          <label class="lb">写真<span class="hint">3枚まで・1枚目が表紙</span></label>
+          <div id="ePhotos" class="ephotos"></div>
+        </div>
+
+        <div class="fdiv">詳しく書く（後からでも大丈夫です）</div>
+
+        <div class="row2">
+          <div class="fgroup">
+            <label class="lb" for="eYomi">よみがな<span class="hint">名前順の並びに使います</span></label>
+            <input type="text" id="eYomi">
+          </div>
+          <div class="fgroup">
+            <label class="lb" for="ePlace">所在地・詳しい地域</label>
+            <input type="text" id="ePlace" placeholder="例：伊部、牛窓町">
+          </div>
+        </div>
+        <div class="fgroup">
+          <label class="lb" for="eCatch">ひとこと紹介</label>
+          <input type="text" id="eCatch" placeholder="カードに表示される短い紹介文">
+        </div>
+        <div class="fgroup">
+          <label class="lb" for="eExcellence">何が素晴らしいか</label>
+          <textarea id="eExcellence"></textarea>
+        </div>
+        <div class="fgroup">
+          <label class="lb" for="eFeatures">特徴</label>
+          <textarea id="eFeatures"></textarea>
+        </div>
+        <div class="fgroup">
+          <label class="lb" for="ePeople">関係者<span class="hint">引き継ぎに含まれます</span></label>
+          <textarea id="ePeople" style="min-height:64px" placeholder="例：○○窯　○○氏（作家）"></textarea>
+        </div>
+        <div class="row2">
+          <div class="fgroup">
+            <label class="lb" for="eUrl">参考URL</label>
+            <input type="url" id="eUrl" placeholder="https://">
+          </div>
+          <div class="fgroup">
+            <label class="lb" for="eTags">タグ<span class="hint">読点・スペース区切り</span></label>
+            <input type="text" id="eTags" placeholder="例：伝統工芸、ギフト、体験">
+          </div>
+        </div>
+        <div class="fgroup">
+          <label class="lb" for="eHandover">引き継ぎメモ<span class="hint">後任の方に伝えたいこと</span></label>
+          <textarea id="eHandover" placeholder="例：グランヴィアでの活用アイデア、お付き合いの経緯"></textarea>
+        </div>
+        <div class="fgroup private-field">
+          <label class="lb" for="ePrivate">🔒 私的メモ<span class="hint">引き継ぎ冊子・Excelには出ません</span></label>
+          <textarea id="ePrivate" placeholder="連絡先や個人的な所感など、自分の中に留めておきたいこと"></textarea>
+        </div>
+
+        <div class="fdiv">状態と日付</div>
+        <div class="fgroup">
+          <div class="radios">
+            <label><input type="radio" name="eStatus" value="draft"> 下書き</label>
+            <label><input type="radio" name="eStatus" value="done"> 完成</label>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="fgroup">
+            <label class="lb" for="eCreated">登録日</label>
+            <input type="date" id="eCreated">
+          </div>
+          <div class="fgroup">
+            <label class="lb" for="eUpdated">更新日<span class="hint">保存すると今日の日付になります</span></label>
+            <input type="date" id="eUpdated">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" data-close="editor">キャンセル</button>
+      <button id="eSave" class="btn primary">保存する</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="restoreFile" accept="application/json,.json" class="hidden">
+<div id="toast" class="toast"></div>
+<div id="print-root"></div>
+
+<script>
+/* =========================================================
+   ▼ ここだけ書き換えてください（設定手順はClaudeの説明を参照）
+   ========================================================= */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAVBmTNeggdMaALtHrnftZ5OnPOnzr2s3Q",
+  authDomain: "okayama-takara.firebaseapp.com",
+  projectId: "okayama-takara",
+  storageBucket: "okayama-takara.firebasestorage.app",
+  messagingSenderId: "264657760397",
+  appId: "1:264657760397:web:414813d022b2826630b2c4"
+};
+// 使えるGoogleアカウント
+const ALLOWED_EMAILS = ["rinranyou@gmail.com"];
+/* ========================================================= */
+
+const DEMO = !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf('ここに') === 0;
+
+const GENRES = ['食','農業','文化','産業','匠','観光・自然','歴史'];
+const GENRE_COLORS = {'食':'#c0573b','農業':'#5f8a3a','文化':'#7a4e8c','産業':'#3b6a8f','匠':'#8a4b2a','観光・自然':'#2f8a7a','歴史':'#6b5f52'};
+const AREAS = ['岡山市','倉敷市','津山市','玉野市','笠岡市','井原市','総社市','高梁市','新見市','備前市','瀬戸内市','赤磐市','真庭市','美作市','浅口市','和気町','早島町','里庄町','矢掛町','新庄村','鏡野町','勝央町','奈義町','西粟倉村','久米南町','美咲町','吉備中央町','県内広域'];
+const MAIN_AREAS = ['岡山市','倉敷市','備前市','瀬戸内市','真庭市','県内広域'];
+const SCALES = ['個人','小規模（〜10人）','中規模（〜100人）','大規模（100人以上）','地域・団体'];
+const PHOTO_MAX = 3;
+const DOC_LIMIT = 1000000;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const fmtDate = s => s ? s.replace(/-/g,'.') : '—';
+const gColor = g => GENRE_COLORS[g] || '#7d7368';
+const primaryGenre = c => (c.genres && c.genres[0]) || 'その他';
+const badge = g => `<span class="badge" style="--gc:${gColor(g)}">${esc(g)}</span>`;
+const safeUrl = u => /^https?:\/\//i.test(u || '') ? u : '';
+
+const state = { cards: [], q: '', genres: new Set(), area: '', scale: '', status: '', sort: 'updated', detailId: null };
+const photoCache = new Map();
+let store = null, started = false, auth = null;
+
+function toast(msg, ms = 2600){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ---------------- データの保存先 ---------------- */
+function makeFirebaseStore(){
+  const db = firebase.firestore();
+  try { db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch(e) {}
+  const C = db.collection('okayama_cards'), P = db.collection('okayama_photos');
+  return {
+    subscribe(cb){ return C.onSnapshot(s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => toast('読み込みエラー：' + e.message, 5000)); },
+    newId(){ return C.doc().id; },
+    save(id, data){ return C.doc(id).set(data); },
+    remove(id){ return Promise.all([C.doc(id).delete(), P.doc(id).delete()]); },
+    async getPhotos(id){ const d = await P.doc(id).get(); return d.exists ? (d.data().photos || []) : []; },
+    setPhotos(id, arr){ return arr.length ? P.doc(id).set({ photos: arr }) : P.doc(id).delete(); }
+  };
+}
+
+function makeDemoStore(){
+  const t = today();
+  let cards = [
+    { id:'s1', name:'備前焼', yomi:'びぜんやき', catch:'釉薬を使わず、土と炎だけで生まれる焼き物', genres:['文化','匠','産業'], area:'備前市', place:'伊部', scale:'地域・団体',
+      excellence:'釉薬も絵付けも用いず、高温で長時間焼き締めることで、一つとして同じもののない景色（窯変）が生まれる。', features:'日本六古窯の一つ。\n使うほどに味わいが増す。', people:'', url:'', tags:['伝統工芸','器'], handoverMemo:'', privateMemo:'', status:'done', createdAt:t, updatedAt:t, thumb:'', photoCount:0 },
+    { id:'s2', name:'清水白桃', yomi:'しみずはくとう', catch:'白く上品な果肉と、とろける甘さの岡山の白桃', genres:['農業','食'], area:'県内広域', place:'', scale:'地域・団体',
+      excellence:'', features:'', people:'', url:'', tags:['果物','夏','贈答'], handoverMemo:'', privateMemo:'', status:'draft', createdAt:t, updatedAt:t, thumb:'', photoCount:0 },
+    { id:'s3', name:'雄町米', yomi:'おまちまい', catch:'多くの酒米のルーツとされる、岡山ゆかりの酒米', genres:['農業','食','産業'], area:'岡山市', place:'', scale:'地域・団体',
+      excellence:'', features:'', people:'', url:'', tags:['日本酒','酒米'], handoverMemo:'', privateMemo:'', status:'draft', createdAt:t, updatedAt:t, thumb:'', photoCount:0 }
+  ];
+  const photos = {};
+  let cb = null; let n = 100;
+  const emit = () => cb && cb(cards.map(c => ({ ...c })));
+  return {
+    subscribe(f){ cb = f; emit(); },
+    newId(){ return 'd' + (n++); },
+    save(id, data){ const i = cards.findIndex(c => c.id === id); const rec = { id, ...data }; if (i >= 0) cards[i] = rec; else cards.push(rec); emit(); return Promise.resolve(); },
+    remove(id){ cards = cards.filter(c => c.id !== id); delete photos[id]; emit(); return Promise.resolve(); },
+    getPhotos(id){ return Promise.resolve(photos[id] || []); },
+    setPhotos(id, arr){ photos[id] = arr.slice(); return Promise.resolve(); }
+  };
+}
+
+async function loadPhotos(id){
+  if (photoCache.has(id)) return photoCache.get(id);
+  try { const p = await store.getPhotos(id); photoCache.set(id, p); return p; }
+  catch(e){ toast('写真を読み込めませんでした'); return []; }
+}
+
+/* ---------------- 絞り込み・並べ替え ---------------- */
+function allGenres(){
+  const s = new Set(GENRES);
+  state.cards.forEach(c => (c.genres || []).forEach(g => s.add(g)));
+  return [...s];
+}
+const areaIdx = a => { const i = AREAS.indexOf(a); return i < 0 ? 999 : i; };
+const byName = (a, b) => (a.yomi || a.name || '').localeCompare(b.yomi || b.name || '', 'ja');
+function byGenre(a, b){
+  const gs = allGenres();
+  const ia = gs.indexOf(primaryGenre(a)), ib = gs.indexOf(primaryGenre(b));
+  return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || byName(a, b);
+}
+
+function filtered(){
+  const terms = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let list = state.cards.filter(c => {
+    if (state.genres.size && !(c.genres || []).some(g => state.genres.has(g))) return false;
+    if (state.area && c.area !== state.area) return false;
+    if (state.scale && c.scale !== state.scale) return false;
+    if (state.status && (c.status || 'draft') !== state.status) return false;
+    if (terms.length){
+      const hay = [c.name, c.yomi, c.catch, c.area, c.place, c.scale, c.excellence, c.features, c.people,
+        (c.tags || []).join(' '), (c.genres || []).join(' '), c.handoverMemo, c.privateMemo].join(' ').toLowerCase();
+      if (!terms.every(t => hay.includes(t))) return false;
+    }
+    return true;
+  });
+  const s = state.sort;
+  if (s === 'updated') list.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '') || byName(a, b));
+  else if (s === 'created') list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || byName(a, b));
+  else if (s === 'name') list.sort(byName);
+  else list.sort(byGenre);
+  return list;
+}
+
+/* ---------------- 一覧の表示 ---------------- */
+function renderFilters(){
+  $('#genreChips').innerHTML = allGenres().map(g =>
+    `<button class="chip ${state.genres.has(g) ? 'on' : ''}" data-g="${esc(g)}" style="--gc:${gColor(g)}">${esc(g)}</button>`).join('');
+  const areas = [...new Set(MAIN_AREAS.concat(state.cards.map(c => c.area).filter(Boolean)))].sort((a, b) => areaIdx(a) - areaIdx(b) || a.localeCompare(b, 'ja'));
+  if (state.area && !areas.includes(state.area)) areas.unshift(state.area);
+  $('#fArea').innerHTML = '<option value="">エリア：すべて</option>' + areas.map(a => `<option value="${esc(a)}" ${a === state.area ? 'selected' : ''}>${esc(a)}</option>`).join('');
+  const n = state.genres.size + (state.area ? 1 : 0) + (state.scale ? 1 : 0) + (state.status ? 1 : 0);
+  $('#fcount').innerHTML = n ? `<span class="fcount">${n}</span>` : '';
+}
+
+function cardHTML(c){
+  const g = primaryGenre(c);
+  const img = c.thumb ? `<img src="${c.thumb}" alt="" loading="lazy">` : `<span class="ph">${esc((c.name || '?').charAt(0))}</span>`;
+  const meta = [c.area, c.scale].filter(Boolean).map(esc).join('　・　');
+  return `<article class="card" data-id="${esc(c.id)}">
+    <div class="thumb" style="--gc:${gColor(g)}">${img}${(c.status || 'draft') === 'draft' ? '<span class="draft">下書き</span>' : ''}</div>
+    <div class="body">
+      <div class="badges">${(c.genres || []).map(badge).join('')}</div>
+      <h3>${esc(c.name)}</h3>
+      <div class="meta">${meta}</div>
+      ${c.catch ? `<p class="catch">${esc(c.catch)}</p>` : ''}
+      <div class="date">更新 ${fmtDate(c.updatedAt)}</div>
+    </div>
+  </article>`;
+}
+
+function render(){
+  renderFilters();
+  const list = filtered();
+  const drafts = state.cards.filter(c => (c.status || 'draft') === 'draft').length;
+  $('#resultLine').textContent = `${list.length}件を表示（全${state.cards.length}件${drafts ? `・うち下書き${drafts}件` : ''}）`;
+  $('#grid').innerHTML = list.map(cardHTML).join('');
+  const empty = $('#empty');
+  if (!list.length){
+    empty.classList.remove('hidden');
+    empty.innerHTML = state.cards.length ? '条件に合うカードがありません。' : 'まだカードがありません。<br>右上の「＋ 登録」から最初の1件を登録しましょう。';
+  } else empty.classList.add('hidden');
+}
+
+/* ---------------- モーダル ---------------- */
+function openModal(id){ $('#' + id).classList.remove('hidden'); document.body.classList.add('modal-open'); }
+function closeModal(id){
+  $('#' + id).classList.add('hidden');
+  if (id === 'detail') state.detailId = null;
+  if ($('#detail').classList.contains('hidden') && $('#editor').classList.contains('hidden')) document.body.classList.remove('modal-open');
+}
+
+/* ---------------- 詳細 ---------------- */
+function galleryHTML(c, photos){
+  const g = primaryGenre(c);
+  if (photos && photos.length) return `<div class="gallery ${photos.length > 1 ? 'multi' : ''}">${photos.map(p => `<img src="${p}" alt="">`).join('')}</div>`;
+  if (c.photoCount) return `<div class="gallery"><div class="gal-loading">写真を読み込み中…</div></div>`;
+  return `<div class="gallery"><div class="gal-ph" style="--gc:${gColor(g)}">${esc((c.name || '?').charAt(0))}</div></div>`;
+}
+function detailHTML(c, photos){
+  const rows = [
+    ['エリア', [c.area, c.place].filter(Boolean).join('　')],
+    ['規模', c.scale],
+    ['関係者', c.people],
+    ['参考URL', safeUrl(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a>` : ''],
+    ['タグ', (c.tags || []).join('、')]
+  ].filter(r => r[1]);
+  const sec = (t, v) => v ? `<div class="d-sec"><h4>${t}</h4><div class="txt">${esc(v)}</div></div>` : '';
+  const done = c.status === 'done';
+  return `<div id="dGallery">${galleryHTML(c, photos)}</div>
+  <div class="d-body">
+    <div class="badges">${(c.genres || []).map(badge).join('')}</div>
+    <h2>${esc(c.name)}</h2>
+    ${c.yomi ? `<div class="d-yomi">${esc(c.yomi)}</div>` : ''}
+    ${c.catch ? `<p class="d-catch">${esc(c.catch)}</p>` : ''}
+    ${rows.length ? `<table class="d-table">${rows.map(r => `<tr><th>${r[0]}</th><td>${r[0] === '参考URL' ? r[1] : esc(r[1])}</td></tr>`).join('')}</table>` : ''}
+    ${sec('何が素晴らしいか', c.excellence)}
+    ${sec('特徴', c.features)}
+    ${sec('引き継ぎメモ', c.handoverMemo)}
+    ${c.privateMemo ? `<div class="private"><h4>🔒 私的メモ（引き継ぎには出ません）</h4><div class="txt">${esc(c.privateMemo)}</div></div>` : ''}
+    <div class="d-dates">
+      <span class="status-pill ${done ? 'done' : ''}">${done ? '完成' : '下書き'}</span>
+      <span>登録日 ${fmtDate(c.createdAt)}</span><span>更新日 ${fmtDate(c.updatedAt)}</span>
+    </div>
+    <div style="margin-top:28px;text-align:right"><button class="btn danger small" id="dDelete">このカードを削除</button></div>
+  </div>`;
+}
+async function openDetail(id){
+  const c = state.cards.find(x => x.id === id); if (!c) return;
+  state.detailId = id;
+  $('#detail .ttl').textContent = '';
+  $('#detailBody').innerHTML = detailHTML(c, photoCache.get(id));
+  $('#detailBody').scrollTop = 0;
+  openModal('detail');
+  if (c.photoCount && !photoCache.has(id)){
+    const p = await loadPhotos(id);
+    if (state.detailId === id) $('#dGallery').innerHTML = galleryHTML(c, p);
+  }
+}
+
+/* ---------------- 登録・編集 ---------------- */
+let edit = null;
+
+function renderEditGenres(selected){
+  $('#eGenres').innerHTML = allGenres().map(g =>
+    `<label style="--gc:${gColor(g)}"><input type="checkbox" value="${esc(g)}" ${selected.includes(g) ? 'checked' : ''}><span>${esc(g)}</span></label>`).join('');
+}
+function renderEditPhotos(){
+  const tiles = edit.photos.map((p, i) => `<div class="ephoto"><img src="${p}" alt="">
+      <button class="x" data-del="${i}" aria-label="削除">✕</button>
+      <button class="cover ${i === 0 ? 'is' : ''}" data-cover="${i}">${i === 0 ? '表紙' : '表紙にする'}</button></div>`).join('');
+  const add = edit.photos.length < PHOTO_MAX ? `<label class="addphoto"><span style="font-size:24px">＋</span>写真を追加<input type="file" id="ePhotoInput" accept="image/*" multiple></label>` : '';
+  $('#ePhotos').innerHTML = tiles + add;
+  const inp = $('#ePhotoInput');
+  if (inp) inp.onchange = e => { addPhotos([...e.target.files]); e.target.value = ''; };
+}
+
+async function openEditor(id){
+  const c = id ? state.cards.find(x => x.id === id) : null;
+  edit = { id: id || null, photos: [], photosChanged: false, origUpdated: c ? (c.updatedAt || '') : today(), loading: false };
+  $('#eTitle').textContent = c ? '編集' : '新しく登録';
+  $('#eName').value = c?.name || '';
+  $('#eYomi').value = c?.yomi || '';
+  $('#eCatch').value = c?.catch || '';
+  const gs = c?.genres || [];
+  renderEditGenres(gs);
+  $('#eGenreExtra').value = '';
+  const ar = c?.area || '';
+  if (!ar || MAIN_AREAS.includes(ar)){ $('#eAreaSel').value = ar; $('#eAreaOther').value = ''; }
+  else { $('#eAreaSel').value = '__other'; $('#eAreaOther').value = ar; }
+  $('#eAreaOther').classList.toggle('hidden', $('#eAreaSel').value !== '__other');
+  $('#ePlace').value = c?.place || '';
+  $('#eScale').value = c?.scale || '';
+  $('#eExcellence').value = c?.excellence || '';
+  $('#eFeatures').value = c?.features || '';
+  $('#ePeople').value = c?.people || '';
+  $('#eUrl').value = c?.url || '';
+  $('#eTags').value = (c?.tags || []).join('、');
+  $('#eHandover').value = c?.handoverMemo || '';
+  $('#ePrivate').value = c?.privateMemo || '';
+  document.querySelectorAll('input[name=eStatus]').forEach(r => r.checked = r.value === (c?.status || 'draft'));
+  $('#eCreated').value = c?.createdAt || today();
+  $('#eUpdated').value = c?.updatedAt || today();
+  renderEditPhotos();
+  openModal('editor');
+  $('#editor .sheet-scroll').scrollTop = 0;
+  if (c && c.photoCount){
+    edit.loading = true;
+    const p = await loadPhotos(c.id);
+    if (edit && edit.id === c.id && !edit.photosChanged){ edit.photos = p.slice(); renderEditPhotos(); }
+    if (edit) edit.loading = false;
+  }
+}
+
+function loadImg(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+function drawScaled(img, max, q){
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const r = Math.min(1, max / Math.max(w, h)); w = Math.round(w * r); h = Math.round(h * r);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
+  return cv.toDataURL('image/jpeg', q);
+}
+async function compressFile(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImg(url);
+    let d = drawScaled(img, 1280, 0.72);
+    if (d.length > 300000) d = drawScaled(img, 1024, 0.62);
+    if (d.length > 300000) d = drawScaled(img, 900, 0.55);
+    return d;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function makeThumb(dataUrl){ return drawScaled(await loadImg(dataUrl), 480, 0.7); }
+
+async function addPhotos(files){
+  if (edit.loading){ toast('写真を読み込み中です。少しお待ちください'); return; }
+  for (const f of files){
+    if (edit.photos.length >= PHOTO_MAX){ toast(`写真は${PHOTO_MAX}枚までです`); break; }
+    try { edit.photos.push(await compressFile(f)); edit.photosChanged = true; }
+    catch(e){ toast('この写真は読み込めませんでした'); }
+  }
+  renderEditPhotos();
+}
+
+async function saveEdit(){
+  const name = $('#eName').value.trim();
+  if (!name) return toast('名称を入力してください');
+  const extra = $('#eGenreExtra').value.split(/[、,，\s]+/).map(s => s.trim()).filter(Boolean);
+  let genres = [...new Set([...document.querySelectorAll('#eGenres input:checked')].map(i => i.value).concat(extra))];
+  const prevG = (state.cards.find(x => x.id === edit.id) || {}).genres || [];
+  const gi = g => { const i = prevG.indexOf(g); return i < 0 ? 999 : i; };
+  genres = genres.map((g, i) => [g, i]).sort((a, b) => gi(a[0]) - gi(b[0]) || a[1] - b[1]).map(x => x[0]);
+  if (!genres.length) return toast('ジャンルを1つ以上選んでください');
+  const area = $('#eAreaSel').value === '__other' ? $('#eAreaOther').value.trim() : $('#eAreaSel').value;
+  if (!area) return toast('エリアを入力してください');
+  if (edit.loading) return toast('写真を読み込み中です。少しお待ちください');
+
+  const id = edit.id || store.newId();
+  const prev = state.cards.find(x => x.id === id) || {};
+  let thumb = prev.thumb || '', photoCount = prev.photoCount || 0;
+
+  if (edit.photosChanged){
+    const size = edit.photos.reduce((s, p) => s + p.length, 0);
+    if (size > DOC_LIMIT) return toast('写真の容量が大きすぎます。1枚減らしてください', 4000);
+    thumb = edit.photos[0] ? await makeThumb(edit.photos[0]) : '';
+    photoCount = edit.photos.length;
+    photoCache.set(id, edit.photos.slice());
+    store.setPhotos(id, edit.photos).catch(e => toast('写真の保存に失敗しました：' + e.message, 5000));
+  }
+
+  let updatedAt = $('#eUpdated').value;
+  if (!updatedAt || updatedAt === edit.origUpdated) updatedAt = today();
+
+  const data = {
+    name, yomi: $('#eYomi').value.trim(), catch: $('#eCatch').value.trim(), genres, area,
+    place: $('#ePlace').value.trim(), scale: $('#eScale').value,
+    excellence: $('#eExcellence').value.trim(), features: $('#eFeatures').value.trim(),
+    people: $('#ePeople').value.trim(), url: $('#eUrl').value.trim(),
+    tags: $('#eTags').value.split(/[、,，\s]+/).map(s => s.trim()).filter(Boolean),
+    handoverMemo: $('#eHandover').value.trim(), privateMemo: $('#ePrivate').value.trim(),
+    status: (document.querySelector('input[name=eStatus]:checked') || {}).value || 'draft',
+    createdAt: $('#eCreated').value || today(), updatedAt, thumb, photoCount
+  };
+  store.save(id, data).catch(e => toast('保存に失敗しました：' + e.message, 5000));
+  const wasDetail = state.detailId === id;
+  edit = null;
+  closeModal('editor');
+  toast('保存しました');
+  if (wasDetail) setTimeout(() => openDetail(id), 50);
+}
+
+function deleteCard(id){
+  const c = state.cards.find(x => x.id === id); if (!c) return;
+  if (!confirm(`「${c.name}」を削除します。\n元に戻せません。よろしいですか？`)) return;
+  store.remove(id).catch(e => toast('削除に失敗しました：' + e.message, 5000));
+  photoCache.delete(id);
+  closeModal('detail');
+  toast('削除しました');
+}
+
+/* ---------------- A4出力 ---------------- */
+function cardPageHTML(c, photos, no){
+  const ph = (photos || []).slice(0, 3);
+  const rows = [
+    ['エリア', [c.area, c.place].filter(Boolean).join('　')],
+    ['ジャンル', (c.genres || []).join('、')],
+    ['規模', c.scale], ['関係者', c.people], ['参考URL', c.url], ['タグ', (c.tags || []).join('、')]
+  ].filter(r => r[1]);
+  const sec = (t, v) => v ? `<div class="pg-sec"><h4>${t}</h4><div class="txt">${esc(v)}</div></div>` : '';
+  return `<div class="pg">
+    <div class="pg-head">
+      <div>
+        ${c.yomi ? `<div class="pg-yomi">${esc(c.yomi)}</div>` : ''}
+        <div class="pg-title">${esc(c.name)}</div>
+        ${c.catch ? `<div class="pg-catch">${esc(c.catch)}</div>` : ''}
+      </div>
+      <div class="pg-right">
+        ${no ? `<div class="pg-no">No.${no}</div>` : ''}
+        <div class="pg-badges">${(c.genres || []).map(g => `<span class="pg-badge" style="--gc:${gColor(g)}">${esc(g)}</span>`).join('')}</div>
+      </div>
+    </div>
+    ${ph.length ? `<div class="pg-photos n${ph.length}">${ph.map(p => `<img src="${p}" alt="">`).join('')}</div>` : ''}
+    ${rows.length ? `<table class="pg-table">${rows.map(r => `<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('')}</table>` : ''}
+    ${sec('何が素晴らしいか', c.excellence)}
+    ${sec('特徴', c.features)}
+    ${sec('引き継ぎメモ', c.handoverMemo)}
+    <div class="pg-foot"><span>登録日 ${fmtDate(c.createdAt)}　／　更新日 ${fmtDate(c.updatedAt)}</span><span>岡山たからもの帖　作成：石川三千代</span></div>
+  </div>`;
+}
+
+async function doPrint(html, title){
+  const root = $('#print-root');
+  root.innerHTML = html;
+  await Promise.all([...root.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const old = document.title;
+  document.title = title;
+  const restore = () => { document.title = old; root.innerHTML = ''; window.removeEventListener('afterprint', restore); };
+  window.addEventListener('afterprint', restore);
+  setTimeout(() => window.print(), 100);
+}
+
+async function printCard(id){
+  const c = state.cards.find(x => x.id === id); if (!c) return;
+  const photos = c.photoCount ? await loadPhotos(id) : [];
+  doPrint(cardPageHTML(c, photos, null), `${c.name}_岡山たからもの帖`);
+}
+
+async function printBooklet(list){
+  if (!list.length) return toast('対象のカードがありません');
+  const sorted = list.slice().sort(byGenre);
+  const need = sorted.filter(c => c.photoCount && !photoCache.has(c.id));
+  for (let i = 0; i < need.length; i++){ toast(`写真を準備中… ${i + 1}/${need.length}`, 1500); await loadPhotos(need[i].id); }
+  const t = today();
+  const cover = `<div class="pg"><div class="cover-pg">
+    <div class="cover-mark">宝</div>
+    <div class="cover-title">岡山たからもの帖</div>
+    <div class="cover-sub">岡山が誇る文化・産業・農業・食・匠の記録</div>
+    <div class="cover-meta">収録 ${sorted.length} 件<br>${fmtDate(t)} 出力<br>作成　石川三千代</div>
+  </div></div>`;
+  let lastG = null, rows = '';
+  sorted.forEach((c, i) => {
+    const g = primaryGenre(c);
+    if (g !== lastG){ rows += `<tr class="grp"><td colspan="5">${esc(g)}</td></tr>`; lastG = g; }
+    rows += `<tr><td class="c">${i + 1}</td><td>${esc(c.name)}</td><td>${esc(c.area || '')}</td><td>${esc((c.genres || []).join('、'))}</td><td class="c">${fmtDate(c.updatedAt)}</td></tr>`;
+  });
+  const toc = `<div class="pg"><div class="toc-title">目次</div>
+    <table class="toc"><thead><tr><th style="width:12mm">No.</th><th>名称</th><th style="width:30mm">エリア</th><th style="width:42mm">ジャンル</th><th style="width:24mm">更新日</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const pages = sorted.map((c, i) => cardPageHTML(c, photoCache.get(c.id) || [], i + 1)).join('');
+  doPrint(cover + toc + pages, `岡山たからもの帖_引き継ぎ冊子_${t}`);
+}
+
+/* ---------------- Excel・バックアップ ---------------- */
+function exportExcel(){
+  if (typeof XLSX === 'undefined') return toast('Excel出力の部品を読み込めませんでした。通信状況を確認してください', 4000);
+  const rows = state.cards.slice().sort(byGenre).map((c, i) => ({
+    'No.': i + 1, '名称': c.name, 'よみがな': c.yomi || '', 'ジャンル': (c.genres || []).join('、'),
+    'エリア': c.area || '', '所在地・詳しい地域': c.place || '', '規模': c.scale || '', 'ひとこと紹介': c.catch || '',
+    '何が素晴らしいか': c.excellence || '', '特徴': c.features || '', '関係者': c.people || '', '参考URL': c.url || '',
+    'タグ': (c.tags || []).join('、'), '引き継ぎメモ': c.handoverMemo || '', '状態': c.status === 'done' ? '完成' : '下書き',
+    '登録日': c.createdAt || '', '更新日': c.updatedAt || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [6,22,16,18,12,16,14,30,40,40,24,24,20,30,8,12,12].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '岡山たからもの帖');
+  XLSX.writeFile(wb, `岡山たからもの帖_${today()}.xlsx`);
+}
+
+function download(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+async function backup(){
+  const out = { app: 'okayama-takara', version: 1, exportedAt: new Date().toISOString(), cards: [] };
+  for (let i = 0; i < state.cards.length; i++){
+    const c = state.cards[i];
+    if (c.photoCount) toast(`バックアップを作成中… ${i + 1}/${state.cards.length}`, 1500);
+    out.cards.push({ ...c, photos: c.photoCount ? await loadPhotos(c.id) : [] });
+  }
+  download(new Blob([JSON.stringify(out)], { type: 'application/json' }), `岡山たからもの帖_バックアップ_${today()}.json`);
+  toast('バックアップを保存しました');
+}
+async function restore(file){
+  let data;
+  try { data = JSON.parse(await file.text()); } catch(e){ return toast('ファイルを読み込めませんでした'); }
+  if (data.app !== 'okayama-takara' || !Array.isArray(data.cards)) return toast('このアプリのバックアップファイルではありません', 4000);
+  if (!confirm(`${data.cards.length}件を復元します。\n同じカードがある場合は上書きされます。よろしいですか？`)) return;
+  for (const c of data.cards){
+    const { id, photos, ...rest } = c;
+    const nid = id || store.newId();
+    await store.save(nid, rest);
+    if (photos && photos.length){ await store.setPhotos(nid, photos); photoCache.set(nid, photos); }
+  }
+  toast(`${data.cards.length}件を復元しました`);
+}
+
+/* ---------------- 画面の操作 ---------------- */
+function bindUI(){
+  $('#eScale').innerHTML = '<option value="">（未選択）</option>' + SCALES.map(s => `<option>${s}</option>`).join('');
+  $('#fScale').innerHTML = '<option value="">規模：すべて</option>' + SCALES.map(s => `<option value="${s}">${s}</option>`).join('');
+  $('#areaList').innerHTML = AREAS.filter(a => !MAIN_AREAS.includes(a)).map(a => `<option value="${a}">`).join('');
+  $('#eAreaSel').innerHTML = '<option value="">（選択してください）</option>' + MAIN_AREAS.map(a => `<option value="${a}">${a}</option>`).join('') + '<option value="__other">その他の市町村（自由入力）</option>';
+  $('#eAreaSel').onchange = e => { const o = e.target.value === '__other'; $('#eAreaOther').classList.toggle('hidden', !o); if (o) $('#eAreaOther').focus(); };
+
+  $('#q').addEventListener('input', e => { state.q = e.target.value; render(); });
+  $('#genreChips').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const g = b.dataset.g; state.genres.has(g) ? state.genres.delete(g) : state.genres.add(g); render();
+  });
+  $('#fArea').onchange = e => { state.area = e.target.value; render(); };
+  $('#fScale').onchange = e => { state.scale = e.target.value; render(); };
+  $('#fStatus').onchange = e => { state.status = e.target.value; render(); };
+  $('#fSort').onchange = e => { state.sort = e.target.value; render(); };
+  $('#btnClear').onclick = () => {
+    state.q = ''; state.genres.clear(); state.area = state.scale = state.status = '';
+    $('#q').value = ''; $('#fScale').value = ''; $('#fStatus').value = ''; render();
+  };
+  $('#btnFilter').onclick = () => $('#filters').classList.toggle('open');
+
+  $('#grid').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openDetail(c.dataset.id); });
+  $('#btnNew').onclick = () => openEditor(null);
+  $('#dEdit').onclick = () => openEditor(state.detailId);
+  $('#dPrint').onclick = () => printCard(state.detailId);
+  $('#detailBody').addEventListener('click', e => { if (e.target.id === 'dDelete') deleteCard(state.detailId); });
+  $('#eSave').onclick = saveEdit;
+  $('#ePhotos').addEventListener('click', e => {
+    const d = e.target.closest('[data-del]'), cv = e.target.closest('[data-cover]');
+    if (d){ e.preventDefault(); edit.photos.splice(+d.dataset.del, 1); edit.photosChanged = true; renderEditPhotos(); }
+    else if (cv && +cv.dataset.cover > 0){ e.preventDefault(); const [p] = edit.photos.splice(+cv.dataset.cover, 1); edit.photos.unshift(p); edit.photosChanged = true; renderEditPhotos(); }
+  });
+
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.close;
+    if (id === 'editor') edit = null;
+    closeModal(id);
+  }));
+  ['detail', 'editor'].forEach(id => $('#' + id).addEventListener('click', e => {
+    if (e.target.id === id && id === 'detail') closeModal(id);
+  }));
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('#editor').classList.contains('hidden')){ edit = null; closeModal('editor'); }
+    else if (!$('#detail').classList.contains('hidden')) closeModal('detail');
+  });
+
+  $('#btnMenu').onclick = e => { e.stopPropagation(); $('#menu').classList.toggle('hidden'); };
+  document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) $('#menu').classList.add('hidden'); });
+  $('#menu').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    $('#menu').classList.add('hidden');
+    const a = b.dataset.act;
+    if (a === 'bookAll') printBooklet(state.cards);
+    else if (a === 'bookFiltered') printBooklet(filtered());
+    else if (a === 'excel') exportExcel();
+    else if (a === 'backup') backup();
+    else if (a === 'restore') $('#restoreFile').click();
+    else if (a === 'logout' && auth) auth.signOut().then(() => location.reload());
+  });
+  $('#restoreFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) restore(f); };
+}
+
+function start(){
+  if (started) return; started = true;
+  $('#login').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  store.subscribe(cards => {
+    state.cards = cards;
+    render();
+    if (state.detailId && !cards.some(c => c.id === state.detailId)) closeModal('detail');
+  });
+}
+
+/* ---------------- 起動 ---------------- */
+bindUI();
+if (DEMO){
+  store = makeDemoStore();
+  $('#demoBanner').classList.remove('hidden');
+  $('#btnLogout').classList.add('hidden'); $('#logoutSep').classList.add('hidden');
+  start();
+} else {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  store = makeFirebaseStore();
+  auth = firebase.auth();
+  const msg = t => { $('#loginMsg').textContent = t; };
+  auth.getRedirectResult().catch(e => msg('ログインできませんでした：' + e.message));
+  auth.onAuthStateChanged(u => {
+    if (!u){ $('#app').classList.add('hidden'); $('#login').classList.remove('hidden'); return; }
+    const open = ALLOWED_EMAILS.some(a => a.indexOf('ここに') === 0);
+    const ok = open || ALLOWED_EMAILS.map(a => a.toLowerCase()).includes((u.email || '').toLowerCase());
+    if (!ok){ msg(`${u.email} ではご利用いただけません`); $('#login').classList.remove('hidden'); auth.signOut(); return; }
+    start();
+  });
+  $('#btnLogin').onclick = async () => {
+    const p = new firebase.auth.GoogleAuthProvider();
+    try { await auth.signInWithPopup(p); }
+    catch(e){
+      if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(e.code)) auth.signInWithRedirect(p);
+      else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') msg('ログインできませんでした：' + e.message);
+    }
+  };
+}
+</script>
+</body>
+</html>
