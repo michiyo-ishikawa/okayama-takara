@@ -188,11 +188,11 @@ body.modal-open{overflow:hidden}
   body>*:not(#print-root){display:none!important}
   #print-root{display:block}
 }
-#print-root{color:#222;font-family:'Noto Sans JP',sans-serif;font-size:10.5pt;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#print-root{color:#222;font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic','YuGothic','Meiryo',sans-serif;font-size:10.5pt;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 #print-root .pg{width:200mm;break-after:page;page-break-after:always}
 #print-root .pg:last-child{break-after:auto;page-break-after:auto}
 .pg-head{display:flex;justify-content:space-between;align-items:flex-end;gap:5mm;border-bottom:0.7mm solid #1f3a5f;padding-bottom:2.5mm;margin-bottom:3mm}
-.pg-title{font-family:'Noto Serif JP',serif;font-size:21pt;font-weight:700;line-height:1.3}
+.pg-title{font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','MS PMincho',serif;font-size:21pt;font-weight:700;line-height:1.3}
 .pg-yomi{font-size:8.5pt;color:#777}
 .pg-catch{font-size:11pt;color:#8a4b2a;margin-top:1mm}
 .pg-right{text-align:right;flex:none}
@@ -214,11 +214,11 @@ body.modal-open{overflow:hidden}
 .pg-sec .txt{white-space:pre-wrap}
 .pg-foot{border-top:0.25mm solid #ccc;margin-top:3mm;padding-top:1.2mm;font-size:8pt;color:#777;display:flex;justify-content:space-between}
 .cover-pg{height:270mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.cover-mark{width:24mm;height:24mm;border-radius:5mm;background:#8a4b2a;color:#fff;font-family:'Noto Serif JP',serif;font-size:30pt;display:flex;align-items:center;justify-content:center}
-.cover-title{font-family:'Noto Serif JP',serif;font-size:34pt;color:#1f3a5f;margin:8mm 0 3mm}
+.cover-mark{width:24mm;height:24mm;border-radius:5mm;background:#8a4b2a;color:#fff;font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','MS PMincho',serif;font-size:30pt;display:flex;align-items:center;justify-content:center}
+.cover-title{font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','MS PMincho',serif;font-size:34pt;color:#1f3a5f;margin:8mm 0 3mm}
 .cover-sub{font-size:12pt;color:#555}
 .cover-meta{margin-top:30mm;font-size:11pt;line-height:2}
-.toc-title{font-family:'Noto Serif JP',serif;font-size:18pt;color:#1f3a5f;border-bottom:0.7mm solid #1f3a5f;padding-bottom:2mm;margin-bottom:3mm}
+.toc-title{font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','MS PMincho',serif;font-size:18pt;color:#1f3a5f;border-bottom:0.7mm solid #1f3a5f;padding-bottom:2mm;margin-bottom:3mm}
 .toc{width:100%;border-collapse:collapse;font-size:9.5pt}
 .toc th{background:#f1ece4;text-align:center;vertical-align:middle;border:0.25mm solid #cfc6b8;padding:1.2mm;font-weight:500}
 .toc td{border:0.25mm solid #cfc6b8;padding:1.2mm 2.5mm;vertical-align:middle}
@@ -852,7 +852,6 @@ async function doPrint(html, title){
   const root = $('#print-root');
   root.innerHTML = html;
   await Promise.all([...root.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
-  if (document.fonts && document.fonts.ready) await document.fonts.ready;
   const old = document.title;
   document.title = title;
   const restore = () => { document.title = old; root.innerHTML = ''; window.removeEventListener('afterprint', restore); };
@@ -862,6 +861,7 @@ async function doPrint(html, title){
 
 async function printCard(id){
   const c = state.cards.find(x => x.id === id); if (!c) return;
+  toast('A4の出力を準備しています…', 2500);
   const photos = c.photoCount ? await loadPhotos(id) : [];
   doPrint(cardPageHTML(c, photos, null), `${c.name}_岡山たからもの帖`);
 }
